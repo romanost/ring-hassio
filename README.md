@@ -1,18 +1,25 @@
 # ring-hassio
-[![Support the author on Patreon][patreon-shield]][patreon]
+
+[Buy Me A Coffee ☕️](https://www.buymeacoffee.com/romanost)
+
 ## About
+This is a fork of https://github.com/jeroenterheerdt/ring-hassio
+
 A Home Assistant add-on to enable live streams of Ring Cameras.
 This add-on wraps around [Dgreif's excellent work](https://github.com/dgreif/ring) and exposes a livestream.
+Supervisor not required to run this addon
 
-> **DOT NOT run this add-on with 24-hour streaming - use this addon by starting it on-demand**
+> **You can run this docker 24/7, the streaming will start by API command
 
 ## Installation
-1. Add this GitHub repository to your **supervisor** (not HACS) add-on store. 
+1. Clone this GitHub repository or copy and adjust the exmaples from this page
 2. Configure your Ring Refresh Token and port (see configuration below).
-3. Start the "Ring Livestream" add-on. Check for errors in the logs.
-4. For remote access, open up the port in your router.
-5. Open the stream at http://homeassistant.local:port/public/stream.m3u8 to make sure it works before going any further. We recommend using VLC or equivalent.
-6. Add a camera to Home Assistant, such as:
+3. Adjust docker-compose.yaml
+4. Start the docker
+5. For remote access, open up the ports in your router.
+6. Start the app by accessing: http://homeassistant.local:3001/api/start
+7. Open the stream at http://homeassistant.local:port/public/stream.m3u8 to make sure it works before going any further. We recommend using VLC or equivalent.
+8. Add a camera to Home Assistant, such as:
    ```yaml
    camera:
      - platform: generic
@@ -21,8 +28,8 @@ This add-on wraps around [Dgreif's excellent work](https://github.com/dgreif/rin
        still_image_url: http://homeassistant.local:port/public/stream.m3u8
     ```
     (Don't worry about the `still_image_url` not pointing to an actual image, we are not going to use it, but it is required.)
-7. Add a card `Picture Glance` card to your UI, set the 'Camera Entity` to the camera you have just created.
-8. Done! Enjoy your shiny new livestream!
+9. Add a card to your UI
+10. Done! Enjoy your shiny new livestream!
 
 ## Configuration
 Example configuration:
@@ -55,36 +62,68 @@ Some users reported success to create a snapshot using:
 ```
 
 ## Battery conservation
-A workaround to start/stop streaming (and avoid quick discharge) in Hassio is to start the addon on demand.
-To do this set up a sensor and switch:
+The streaming app will stop automatically after 180 seconds.
+To start the app browse to: http://homeassistant.local:3001/api/start
 
-   ```yaml
-   sensor:
-     - platform: rest
-       resource: "http://hassio.local:port/api/hassio/addons/xxxxxxxx_ringlivestream/info"
-       headers:
-         Authorization: "Bearer [Long_Lived_Access_Token]"
-         Content-Type: application/json
-       name: ring_addon_state
-       value_template: "{{value_json['data']['state']}}" 
-    
-   switch:
-     - platform: template
-       switches:
-         ring_live_stream:
-           value_template: "{{ is_state('sensor.ring_addon_state', 'started') }}"
-           turn_on:
-             service: hassio.addon_start
-             data:
-               addon: xxxxxxxx_ringlivestream
-           turn_off:
-             service: hassio.addon_stop
-             data:
-               addon: xxxxxxxx_ringlivestream
-   ```
-- for the sensor you will need the URL of the Info page on the Ring Livestream add-on page.
-- a `[Long_Lived_Access_Token]` can be generated on your profile page in Home Assistant (https://hassio.local:port/profile), scroll all the way to the bottom.
-- To get the 8 chars code "xxxxxxxx_ringlivestream" get them from the same URL.
+## Docker-compose example
+```yaml
+  ringhassio:
+    restart: always
+    container_name: ringhassio
+    hostname: ringhassio
+    image: romanost/ring-hassio:latest
+    network_mode: "bridge"
+    ports:
+      - 3000:3000 ## port configured in conf for streaming
+      - 3001:3001 ## api port - static
+    environment:
+      TZ: "Asia/Jerusalem"
+    volumes:
+      - /ring-hassio/config:/data ## options.json file location
+```
 
-[patreon-shield]: https://frenck.dev/wp-content/uploads/2019/12/patreon.png
-[patreon]: https://www.patreon.com/dutchdatadude
+## Config file example
+
+/ring-hassio/config/options.json
+```json
+{
+    "ring_refresh_token": "enter_token_here",
+    "camera_name": "Front Door",
+    "port": 3000
+}
+```
+
+## Automation example
+Shell command for starting the app:
+```yaml
+shell_command:
+  mngdocker: 'curl localhost:3001/api/start'
+```
+
+Automation with popup
+```yaml
+- id: '1610000000'
+  alias: Ringing
+  trigger:
+  - platform: state
+    entity_id: binary_sensor.front_door_ding
+    from: 'off'
+    to: 'on'
+  action:
+  - service: shell_command.mngdocker
+  - service: browser_mod.popup
+    data:
+      large: true
+      # hide_header: true
+      title: Popup example
+      card:
+        type: picture-entity
+        entity: camera.ring_livestream
+        camera_view: live
+      deviceID:
+        - fafa3454-7788abcd
+        - 9f443322-abab3331
+  mode: single
+```
+
+
