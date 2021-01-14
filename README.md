@@ -9,7 +9,7 @@ A Home Assistant add-on to enable live streams of Ring Cameras.
 This add-on wraps around [Dgreif's excellent work](https://github.com/dgreif/ring) and exposes a livestream.
 Supervisor not required to run this addon
 
-> **You can run this docker 24/7, the streaming will start by API command
+> You can run this docker 24/7, the streaming will start by API command
 
 ## Installation
 1. Clone this GitHub repository or copy and adjust the exmaples from this page
